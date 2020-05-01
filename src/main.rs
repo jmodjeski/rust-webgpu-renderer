@@ -1,3 +1,8 @@
+use futures::executor::block_on;
+
+mod engine;
+mod house;
+
 fn main() {
-    println!("Hello, world!");
+    block_on(house::main("House"));
 }
