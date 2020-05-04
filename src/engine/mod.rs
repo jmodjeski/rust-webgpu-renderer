@@ -1,3 +1,4 @@
+// use std::mem::ManuallyDrop;
 use winit::{
     window::{Window},
     dpi::{PhysicalSize}
@@ -102,10 +103,56 @@ impl Engine {
         }
     }
 
-    pub fn run() {
+    pub fn render(engine: &mut Engine) {
+        let frame = engine.swapchain.get_next_texture().expect("Timeout when aquiring next swapchain texture");
+        let mut encoder = engine.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: None,
+        });
 
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: &frame.view,
+                    resolve_target: None,
+                    load_op: wgpu::LoadOp::Clear,
+                    store_op: wgpu::StoreOp::Store,
+                    clear_color: wgpu::Color::BLACK,
+                }],
+                depth_stencil_attachment: None,
+            });
+
+            render_pass.set_pipeline(&engine.pipeline);
+            render_pass.set_bind_group(0, &engine.bind_group, &[]);
+            render_pass.draw(0..3, 0..1);
+        }
+
+        engine.queue.submit(&[encoder.finish()]);
+    }
+
+    pub fn recreate_swapchain(engine: &mut Engine, size: PhysicalSize<u32>) {
+        let swapchain_description = create_swapchain_description(size);
+        engine.swapchain = engine.device.create_swap_chain(&engine.surface, &swapchain_description);
     }
 }
+
+
+// Only needed if resources are not disposed of in wgpu
+// struct EngineResourceHolder(ManuallyDrop<Engine>);
+
+// impl Drop for EngineResourceHolder {
+//     fn drop(&mut self) {
+//         let Engine {
+//             surface,
+//             device,
+//             queue,
+//             bind_group,
+//             pipeline,
+//             swapchain,
+//         } = ManuallyDrop::take(&mut self.0);
+
+//         device.
+//     }
+// }
 
 pub fn create_swapchain_description (size: PhysicalSize<u32>) -> wgpu::SwapChainDescriptor {
     wgpu::SwapChainDescriptor {
