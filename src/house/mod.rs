@@ -8,6 +8,7 @@ use winit::{
 use super::engine::{Engine};
 
 pub fn main(title: &str) {
+    // move all of this to engine
     let event_loop = EventLoop::new();
     let window_builder = WindowBuilder::new().with_title(title);
     let window = window_builder.build(&event_loop).unwrap();
@@ -26,7 +27,7 @@ pub fn main(title: &str) {
 
             // Draw
             Event::RedrawRequested(_) => {
-                Engine::render(&mut engine_resources);
+                Engine::render(&event, &mut engine_resources);
             },
 
             Event::WindowEvent {

@@ -3,7 +3,11 @@ use winit::{
     window::{Window},
     dpi::{PhysicalSize}
 };
+use imgui;
+use imgui_wgpu::Renderer;
 
+const CLEAR_COLOR: wgpu::Color = wgpu::Color::BLACK;
+const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 pub struct Engine {
     pub surface: wgpu::Surface,
@@ -12,6 +16,8 @@ pub struct Engine {
     pub bind_group: wgpu::BindGroup,
     pub pipeline: wgpu::RenderPipeline,
     pub swapchain: wgpu::SwapChain,
+    pub imgui: imgui::Context,
+    pub im_renderer: Renderer,
 }
 
 impl Engine {
@@ -74,7 +80,7 @@ impl Engine {
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
             color_states: &[wgpu::ColorStateDescriptor {
-                format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                format: TEXTURE_FORMAT,
                 color_blend: wgpu::BlendDescriptor::REPLACE,
                 alpha_blend: wgpu::BlendDescriptor::REPLACE,
                 write_mask: wgpu::ColorWrite::ALL,
@@ -93,17 +99,22 @@ impl Engine {
 
         let swapchain = device.create_swap_chain(&surface, &swapchain_description);
 
+        let imgui = imgui::Context::create();
+        let mut im_renderer = Renderer::new(&mut imgui, &mut device, &mut queue, TEXTURE_FORMAT, Some(CLEAR_COLOR));
+
         Engine {
             surface: surface,
             device: device,
             queue: queue,
             bind_group: bind_group,
             pipeline: render_pipeline,
-            swapchain: swapchain
+            swapchain: swapchain,
+            imgui: imgui,
+            im_renderer: im_renderer,
         }
     }
 
-    pub fn render(engine: &mut Engine) {
+    pub fn render(event: &winit::event::Event<()>, engine: &mut Engine) {
         let frame = engine.swapchain.get_next_texture().expect("Timeout when aquiring next swapchain texture");
         let mut encoder = engine.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: None,
@@ -116,7 +127,7 @@ impl Engine {
                     resolve_target: None,
                     load_op: wgpu::LoadOp::Clear,
                     store_op: wgpu::StoreOp::Store,
-                    clear_color: wgpu::Color::BLACK,
+                    clear_color: CLEAR_COLOR,
                 }],
                 depth_stencil_attachment: None,
             });
@@ -125,6 +136,10 @@ impl Engine {
             render_pass.set_bind_group(0, &engine.bind_group, &[]);
             render_pass.draw(0..3, 0..1);
         }
+
+        let ui = engine.imgui.frame();
+
+        engine.im_renderer.render(ui, &mut engine.device, &mut encoder, &frame.view).expect("ImGui render failed");
 
         engine.queue.submit(&[encoder.finish()]);
     }
