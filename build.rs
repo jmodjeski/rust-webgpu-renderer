@@ -4,7 +4,7 @@ use std::error::Error;
 use std::fs;
 use glsl_to_spirv::ShaderType;
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     // println!("cargo:rerun-if-changed=src/engine/shaders");
 
     fs::create_dir_all("compiled_shaders")?;
