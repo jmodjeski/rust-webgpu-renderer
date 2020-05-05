@@ -1,18 +1,13 @@
-use futures::executor::block_on;
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::{WindowBuilder},
+    event_loop::{ControlFlow},
 };
 
 use super::engine::{Engine};
 
 pub fn main(title: &str) {
-    // move all of this to engine
-    let event_loop = EventLoop::new();
-    let window_builder = WindowBuilder::new().with_title(title);
-    let window = window_builder.build(&event_loop).unwrap();
-    let mut engine_resources = block_on(Engine::init(&window));
+    let (window, event_loop) = Engine::get_init(&title);
+    let mut engine = Engine::new(&window);
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -22,12 +17,12 @@ pub fn main(title: &str) {
 
             // Window Resized
             Event::WindowEvent { event: WindowEvent::Resized(size), .. } => {
-                Engine::recreate_swapchain(&mut engine_resources, size);
+                engine.window_resized(size);
             },
 
             // Draw
             Event::RedrawRequested(_) => {
-                Engine::render(&event, &mut engine_resources);
+                engine.render(event);         
             },
 
             Event::WindowEvent {

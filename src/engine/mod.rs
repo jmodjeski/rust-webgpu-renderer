@@ -1,10 +1,10 @@
-// use std::mem::ManuallyDrop;
+use futures::executor::block_on;
 use winit::{
-    window::{Window},
+    window::{Window, WindowBuilder},
+    event::{Event},
+    event_loop::{EventLoop},
     dpi::{PhysicalSize}
 };
-use imgui;
-use imgui_wgpu::Renderer;
 
 const CLEAR_COLOR: wgpu::Color = wgpu::Color::BLACK;
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
@@ -15,30 +15,43 @@ pub struct Engine {
     pub queue: wgpu::Queue,
     pub bind_group: wgpu::BindGroup,
     pub pipeline: wgpu::RenderPipeline,
-    pub swapchain: wgpu::SwapChain,
-    pub imgui: imgui::Context,
-    pub im_renderer: Renderer,
+    pub swapchain: wgpu::SwapChain
 }
 
 impl Engine {
-    pub async fn init(window: &Window) -> Engine {
-        let size = window.inner_size();
-        let surface = wgpu::Surface::create(window);
+    pub fn get_init(title: &str) -> (Window, EventLoop<()>) {
+        let event_loop = EventLoop::new();
+        let window_builder = WindowBuilder::new().with_title(title);
+        let window = window_builder.build(&event_loop).unwrap();
 
-        let adapter = wgpu::Adapter::request(
+        (window, event_loop)
+    }
+
+    async fn get_adapter(surface: &wgpu::Surface) -> wgpu::Adapter {
+        wgpu::Adapter::request(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
-                compatible_surface: Some(&surface),
+                compatible_surface: Some(surface),
             },
             wgpu::BackendBit::PRIMARY
-        ).await.unwrap();
+        ).await.unwrap()
+    }
 
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+    async fn get_device_queue(adapter: wgpu::Adapter) -> (wgpu::Device, wgpu::Queue) {
+        adapter.request_device(&wgpu::DeviceDescriptor {
             extensions: wgpu::Extensions {
                 anisotropic_filtering: false,
             },
             limits: wgpu::Limits::default(),
-        }).await;
+        }).await
+    }
+
+    pub fn new(window: &Window) -> Engine {
+        let size = window.inner_size();
+        let surface = wgpu::Surface::create(window);
+
+        let adapter = block_on(Engine::get_adapter(&surface));
+        let (device, queue) = block_on(Engine::get_device_queue(adapter));
 
         let vs = include_bytes!("../../compiled_shaders/shader.vert.spv");
         let vs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
@@ -99,9 +112,6 @@ impl Engine {
 
         let swapchain = device.create_swap_chain(&surface, &swapchain_description);
 
-        let imgui = imgui::Context::create();
-        let mut im_renderer = Renderer::new(&mut imgui, &mut device, &mut queue, TEXTURE_FORMAT, Some(CLEAR_COLOR));
-
         Engine {
             surface: surface,
             device: device,
@@ -109,14 +119,12 @@ impl Engine {
             bind_group: bind_group,
             pipeline: render_pipeline,
             swapchain: swapchain,
-            imgui: imgui,
-            im_renderer: im_renderer,
         }
     }
 
-    pub fn render(event: &winit::event::Event<()>, engine: &mut Engine) {
-        let frame = engine.swapchain.get_next_texture().expect("Timeout when aquiring next swapchain texture");
-        let mut encoder = engine.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+    pub fn render(&mut self, _event: Event<()>) {
+        let frame = self.swapchain.get_next_texture().expect("Timeout when aquiring next swapchain texture");
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: None,
         });
 
@@ -132,21 +140,31 @@ impl Engine {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_pipeline(&engine.pipeline);
-            render_pass.set_bind_group(0, &engine.bind_group, &[]);
+            render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_bind_group(0, &self.bind_group, &[]);
             render_pass.draw(0..3, 0..1);
         }
 
-        let ui = engine.imgui.frame();
-
-        engine.im_renderer.render(ui, &mut engine.device, &mut encoder, &frame.view).expect("ImGui render failed");
-
-        engine.queue.submit(&[encoder.finish()]);
+        self.queue.submit(&[encoder.finish()]);
     }
 
-    pub fn recreate_swapchain(engine: &mut Engine, size: PhysicalSize<u32>) {
+    pub fn window_resized(&mut self, size: PhysicalSize<u32>) {
+        self.recreate_swapchain(size);
+    }
+
+    fn recreate_swapchain(&mut self, size: PhysicalSize<u32>) {
         let swapchain_description = create_swapchain_description(size);
-        engine.swapchain = engine.device.create_swap_chain(&engine.surface, &swapchain_description);
+        self.swapchain = self.device.create_swap_chain(&self.surface, &swapchain_description);
+    }
+}
+
+pub fn create_swapchain_description (size: PhysicalSize<u32>) -> wgpu::SwapChainDescriptor {
+    wgpu::SwapChainDescriptor {
+        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        format: TEXTURE_FORMAT,
+        width: size.width,
+        height: size.height,
+        present_mode: wgpu::PresentMode::Mailbox,
     }
 }
 
@@ -168,13 +186,3 @@ impl Engine {
 //         device.
 //     }
 // }
-
-pub fn create_swapchain_description (size: PhysicalSize<u32>) -> wgpu::SwapChainDescriptor {
-    wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-        format: wgpu::TextureFormat::Bgra8UnormSrgb,
-        width: size.width,
-        height: size.height,
-        present_mode: wgpu::PresentMode::Mailbox,
-    }
-}
