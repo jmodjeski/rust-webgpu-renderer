@@ -4,4 +4,4 @@
 
 Cube with User Camera Movement
 
-![cube with user camera movement gif](https://github.com/tscritch/rust-webgpu-renderer/tree/master/screenshots/cube_move.gif)
+![cube with user camera movement gif](https://github.com/tscritch/rust-webgpu-renderer/blob/master/screenshots/cube_move.gif)
