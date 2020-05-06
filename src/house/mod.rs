@@ -12,6 +12,8 @@ pub fn main(title: &str) {
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
 
+        engine.update(&event);
+
         match event {
             Event::MainEventsCleared => window.request_redraw(),
 
@@ -20,15 +22,16 @@ pub fn main(title: &str) {
                 engine.window_resized(size);
             },
 
-            // Draw
-            Event::RedrawRequested(_) => {
-                engine.render(event);         
-            },
-
+            // Window Close
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 window_id,
             } if window_id == window.id() => *control_flow = ControlFlow::Exit,
+
+            // Draw
+            Event::RedrawRequested(_) => {
+                engine.render(event);         
+            },
             _ => (),
         }
     });

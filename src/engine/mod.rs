@@ -1,23 +1,22 @@
-use std::convert::TryInto;
-use std::f32::consts::PI;
 use futures::executor::block_on;
 use zerocopy::AsBytes;
 use winit::{
     window::{Window, WindowBuilder},
-    event::{Event},
+    event::{Event, WindowEvent, KeyboardInput, VirtualKeyCode, ElementState},
     event_loop::{EventLoop},
     dpi::{PhysicalSize}
 };
-use glm::{mat4, Matrix4};
 
 mod types;
+mod utils;
+mod camera;
 
 const CLEAR_COLOR: wgpu::Color = wgpu::Color::BLACK;
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 // PROJECTION/CAMERA
 const F_NEAR: f32 = 0.1;
-const F_FAR: f32 = 1000.0;
+const F_FAR: f32 = 100.0;
 const F_FOV: f32 = 90.0;
 
 pub struct Engine {
@@ -30,6 +29,8 @@ pub struct Engine {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     index_buffer_len: u32,
+    uniform_buffer: wgpu::Buffer,
+    camera: camera::Camera
 }
 
 impl Engine {
@@ -116,9 +117,8 @@ impl Engine {
         let vertex_buffer = device.create_buffer_with_data(verticies.as_bytes(), wgpu::BufferUsage::VERTEX);
         let index_buffer = device.create_buffer_with_data(indicies.as_bytes(), wgpu::BufferUsage::INDEX);
 
-        let mv_matrix = Engine::create_mvp_matrix(size.width as f32/ size.height as f32);
-        let mv_data: &[f32; 16] = &matrix4_to_array(mv_matrix);
-        let uniform_buffer = device.create_buffer_with_data(mv_data.as_bytes(), wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST);
+        let camera = camera::Camera::new(size.width as f32 / size.height as f32, F_NEAR, F_FAR, F_FOV);
+        let uniform_buffer = device.create_buffer_with_data(&camera.projection().as_bytes(), wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST);
 
         let vs = include_bytes!("../../compiled_shaders/shader.vert.spv");
         let vs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
@@ -170,7 +170,7 @@ impl Engine {
                 entry_point: "main",
             }),
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
+                front_face: wgpu::FrontFace::Cw,
                 cull_mode: wgpu::CullMode::Back,
                 depth_bias: 0,
                 depth_bias_slope_scale: 0.0,
@@ -207,6 +207,52 @@ impl Engine {
             vertex_buffer: vertex_buffer,
             index_buffer: index_buffer,
             index_buffer_len: indicies.len() as u32,
+            uniform_buffer: uniform_buffer,
+            camera: camera,
+        }
+    }
+
+    pub fn update(&mut self, event: &Event<()>) {
+        match event {
+            Event::WindowEvent { event, .. } => {
+                match event {
+                    WindowEvent::KeyboardInput {
+                        input: KeyboardInput {
+                            virtual_keycode: Some(virtual_code),
+                            state: ElementState::Pressed,
+                            ..
+                        },
+                        ..
+                    } => {
+                        match virtual_code {
+                            VirtualKeyCode::W => {
+                                self.camera.z -= 0.1 * self.camera.speed;
+                            }
+                            VirtualKeyCode::S => {
+                                self.camera.z += 0.1 * self.camera.speed;
+                            }
+                            VirtualKeyCode::A => {
+                                self.camera.x -= 0.1 * self.camera.speed;
+                            }
+                            VirtualKeyCode::D => {
+                                self.camera.x += 0.1 * self.camera.speed;
+                            }
+                            VirtualKeyCode::Up => {
+                                self.camera.y += 0.1 * self.camera.speed;
+                            }
+                            VirtualKeyCode::Down => {
+                                self.camera.y -= 0.1 * self.camera.speed;
+                            }
+                            _ => {
+                                println!("{:?} pressed", virtual_code);
+                            }
+                        }
+                        self.submit_uniform_data();
+                    },
+                    _ => ()
+                }
+            }
+            _ => ()
         }
     }
 
@@ -240,6 +286,15 @@ impl Engine {
 
     pub fn window_resized(&mut self, size: PhysicalSize<u32>) {
         self.recreate_swapchain(size);
+        self.camera.aspect_ratio = size.width as f32 / size.height as f32;
+        self.submit_uniform_data();
+    }
+
+    fn submit_uniform_data(&mut self) {
+        let temp_buffer = self.device.create_buffer_with_data(&self.camera.projection().as_bytes(), wgpu::BufferUsage::COPY_SRC);
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        encoder.copy_buffer_to_buffer(&temp_buffer, 0, &self.uniform_buffer, 0, 64);
+        self.queue.submit(&[encoder.finish()]);
     }
 
     fn recreate_swapchain(&mut self, size: PhysicalSize<u32>) {
@@ -265,40 +320,6 @@ impl Engine {
             ]
         }
     }
-
-    fn create_mvp_matrix(aspect_ratio: f32) -> Matrix4<f32> {
-        let fov_rad = deg_to_rad(F_FOV * 0.5); 
-        let fov = 1.0 / fov_rad.tan();
-        let x = aspect_ratio * fov;
-        let y = fov;
-        let z = F_FAR / (F_FAR - F_NEAR);
-        let w = (-F_FAR * F_NEAR) / (F_FAR - F_NEAR);
-        println!("aspect ratio: {}", aspect_ratio);
-        println!("fov: {}", fov);
-        println!("x: {}, y: {}, z: {}", x, y, z);
-        let xrot = deg_to_rad(83.0);
-        let yrot = deg_to_rad(21.0);
-        let projection = mat4(
-            x, 0.0, 0.0, 0.0,
-            0.0, y, 0.0, 0.0,
-            0.0, 0.0, z, 1.0,
-            0.0, 0.0, w, 0.0,
-        );
-        let view = mat4(
-            1.0,    0.0,   0.0,    0.0,
-            0.0,    1.0,   0.0,    0.0,
-            0.0,    0.0,   1.0,    0.0,
-            0.3,   -2.4,   2.0,    1.0,
-        );
-        // let opengl_fix = mat4(
-        //     1.0, 0.0, 0.0, 0.0,
-        //     0.0, 1.0, 0.0, 0.0,
-        //     0.0, 0.0, 0.5, 0.0,
-        //     0.0, 0.0, 0.5, 1.0,
-        // );
-
-        projection * view * rotation(xrot, yrot, 0.0)
-    }
 }
 
 pub fn create_swapchain_description (size: PhysicalSize<u32>) -> wgpu::SwapChainDescriptor {
@@ -309,51 +330,6 @@ pub fn create_swapchain_description (size: PhysicalSize<u32>) -> wgpu::SwapChain
         height: size.height,
         present_mode: wgpu::PresentMode::Mailbox,
     }
-}
-
-fn matrix4_to_array(mat: Matrix4<f32>) -> [f32; 16] {
-    let vecs = mat.as_array();
-    let mut vals: Vec<[f32; 4]> = Vec::new();
-    for v in vecs.iter() {
-        vals.push(v.as_array().clone());
-    }
-    vals.concat()[..].try_into().expect("slice with incorrect length")
-}
-
-fn deg_to_rad(deg: f32) -> f32 {
-    (deg * PI) / 180.0
-}
-
-fn rotation(x: f32, y: f32, z: f32) -> Matrix4<f32> {
-    xrotation(x) * yrotation(y) * zrotation(z)
-}
-
-fn xrotation(rads: f32) -> Matrix4<f32> {
-    let sincos = (rads.sin(), rads.cos());
-    mat4(
-        1.0,    0.0,       0.0,       0.0,
-        0.0,    sincos.1,  -sincos.0, 0.0,
-        0.0,    sincos.0,  sincos.1,  0.0,
-        0.0,    0.0,       0.0,       1.0,
-    )
-}
-fn yrotation(rads: f32) -> Matrix4<f32> {
-    let sincos = (rads.sin(), rads.cos());
-    mat4(
-        sincos.1,    0.0,   sincos.0,  0.0,
-        0.0,         1.0,   0.0,       0.0,
-        -sincos.0,   0.0,   sincos.1,  0.0,
-        0.0,         0.0,   0.0,       1.0,
-    )
-}
-fn zrotation(rads: f32) -> Matrix4<f32> {
-    let sincos = (rads.sin(), rads.cos());
-    mat4(
-        sincos.1,   -sincos.0,  0.0,   0.0,
-        sincos.0,    sincos.1,  0.0,   0.0,
-        0.0,         0.0,       1.0,   0.0,
-        0.0,         0.0,       0.0,   1.0,
-    )
 }
 
 // impl<'a, T> TryFrom<&'a [T]> for &'a [T; $N] 
