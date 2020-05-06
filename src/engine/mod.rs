@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use futures::executor::block_on;
 use zerocopy::AsBytes;
 use winit::{
@@ -6,13 +7,17 @@ use winit::{
     event_loop::{EventLoop},
     dpi::{PhysicalSize}
 };
+use glm::{mat4, Matrix4};
 
 mod types;
 
 const CLEAR_COLOR: wgpu::Color = wgpu::Color::BLACK;
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
-
+// PROJECTION/CAMERA
+const F_NEAR: f32 = 0.1;
+const F_FAR: f32 = 100.0;
+const F_FOV: f32 = 95.0;
 
 pub struct Engine {
     surface: wgpu::Surface,
@@ -22,15 +27,54 @@ pub struct Engine {
     pipeline: wgpu::RenderPipeline,
     swapchain: wgpu::SwapChain,
     vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    index_buffer_len: u32,
 }
 
 impl Engine {
-    fn create_verticies() -> Vec<types::Vertex> {
-        [
-            types::Vertex::new(0.0, -0.5, 1.0, 1.0, 0.0, 0.0),
-            types::Vertex::new(0.5, 0.5, 1.0, 0.0, 1.0, 0.0),
-            types::Vertex::new(-0.5, 0.5, 1.0, 0.0, 0.0, 1.0),
-        ].to_vec()
+    fn create_verticies() -> (Vec<types::Vertex>, Vec<u16>) {
+        ([
+            // top
+            types::Vertex::new(-1.0, -1.0, 3.0, 1.0, 0.0, 0.0),  // 0
+            types::Vertex::new(1.0, -1.0, 3.0, 0.0, 1.0, 0.0),   // 1
+            types::Vertex::new(1.0, 1.0, 3.0, 0.0, 0.0, 1.0),    // 2
+            types::Vertex::new(-1.0, 1.0, 3.0, 0.0, 0.0, 1.0),   // 3
+            // bottom
+            types::Vertex::new(-1.0, -1.0, 2.0, 1.0, 0.0, 0.0), // 4
+            types::Vertex::new(1.0, -1.0, 2.0, 0.0, 1.0, 0.0),  // 5
+            types::Vertex::new(1.0, 1.0, 2.0, 0.0, 0.0, 1.0),   // 6
+            types::Vertex::new(-1.0, 1.0, 2.0, 0.0, 0.0, 1.0),  // 7
+            // right
+            types::Vertex::new(1.0, -1.0, 2.0, 1.0, 0.0, 0.0),  // 8
+            types::Vertex::new(1.0, 1.0, 2.0, 0.0, 1.0, 0.0),   // 9
+            types::Vertex::new(1.0, 1.0, 3.0, 0.0, 0.0, 1.0),    // 10
+            types::Vertex::new(1.0, -1.0, 3.0, 0.0, 0.0, 1.0),   // 11
+            // left
+            types::Vertex::new(-1.0, -1.0, 3.0, 0.0, 0.0, 1.0),  // 12
+            types::Vertex::new(-1.0, 1.0, 3.0, 0.0, 1.0, 0.0),   // 13
+            types::Vertex::new(-1.0, 1.0, 2.0, 0.0, 0.0, 1.0),  // 14
+            types::Vertex::new(-1.0, -1.0, 2.0, 1.0, 0.0, 0.0), // 15
+            // front
+            types::Vertex::new(1.0, 1.0, 2.0, 0.0, 0.0, 1.0),   // 16
+            types::Vertex::new(-1.0, 1.0, 2.0, 0.0, 0.0, 1.0),  // 17
+            types::Vertex::new(-1.0, 1.0, 3.0, 0.0, 1.0, 0.0),   // 18
+            types::Vertex::new(1.0, 1.0, 3.0, 1.0, 0.0, 0.0),    // 19
+            // back
+            types::Vertex::new(1.0, -1.0, 3.0, 0.0, 0.0, 1.0),   // 20
+            types::Vertex::new(-1.0, -1.0, 3.0, 0.0, 0.0, 1.0),  // 21
+            types::Vertex::new(-1.0, -1.0, 2.0, 0.0, 1.0, 0.0), // 22
+            types::Vertex::new(1.0, -1.0, 2.0, 1.0, 0.0, 0.0),  // 23
+            
+        ].to_vec(),
+            [
+                0, 1, 2, 2, 3, 0, // top
+                4, 5, 6, 6, 7, 4, // bottom
+                8, 9, 10, 10, 11, 8, // right
+                12, 13, 14, 14, 15, 12, // left
+                16, 17, 18, 18, 19, 16, // front
+                20, 21, 22, 22, 23, 20, // back
+            ].to_vec()
+        )
     }
 
     pub fn get_init(title: &str) -> (Window, EventLoop<()>) {
@@ -67,8 +111,13 @@ impl Engine {
         let adapter = block_on(Engine::get_adapter(&surface));
         let (device, queue) = block_on(Engine::get_device_queue(adapter));
 
-        let verticies = Engine::create_verticies();
+        let (verticies, indicies) = Engine::create_verticies();
         let vertex_buffer = device.create_buffer_with_data(verticies.as_bytes(), wgpu::BufferUsage::VERTEX);
+        let index_buffer = device.create_buffer_with_data(indicies.as_bytes(), wgpu::BufferUsage::INDEX);
+
+        let mv_matrix = Engine::create_mvp_matrix(size.width as f32/ size.height as f32);
+        let mv_data: &[f32; 16] = &matrix4_to_array(mv_matrix);
+        let uniform_buffer = device.create_buffer_with_data(mv_data.as_bytes(), wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST);
 
         let vs = include_bytes!("../../compiled_shaders/shader.vert.spv");
         let vs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
@@ -77,13 +126,27 @@ impl Engine {
         let fs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            bindings: &[],
+            bindings: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                }
+            ],
             label: None,
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
-            bindings: &[],
+            bindings: &[
+                wgpu::Binding {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer {
+                        buffer: &uniform_buffer,
+                        range: 0..64,
+                    }
+                }
+            ],
             label: None,
         });
 
@@ -141,6 +204,8 @@ impl Engine {
             pipeline: render_pipeline,
             swapchain: swapchain,
             vertex_buffer: vertex_buffer,
+            index_buffer: index_buffer,
+            index_buffer_len: indicies.len() as u32,
         }
     }
 
@@ -164,8 +229,9 @@ impl Engine {
 
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.bind_group, &[]);
+            render_pass.set_index_buffer(&self.index_buffer, 0, 0);
             render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 0);
-            render_pass.draw(0..3, 0..1);
+            render_pass.draw_indexed(0..self.index_buffer_len, 0, 0..1);
         }
 
         self.queue.submit(&[encoder.finish()]);
@@ -198,6 +264,38 @@ impl Engine {
             ]
         }
     }
+
+    fn create_mvp_matrix(aspect_ratio: f32) -> Matrix4<f32> {
+        let fov_rad = F_FOV * 0.5 / 180.0 * std::f32::consts::PI;
+        let fov = 1.0 / fov_rad.tan();
+        let x = aspect_ratio * fov;
+        let y = fov;
+        let z = F_FAR / (F_FAR - F_NEAR);
+        let w = (-F_FAR * F_NEAR) / (F_FAR - F_NEAR);
+        println!("aspect ratio: {}", aspect_ratio);
+        println!("fov: {}", fov);
+        println!("x: {}, y: {}, z: {}", x, y, z);
+        let projection = mat4(
+            x, 0.0, 0.0, 0.0,
+            0.0, y, 0.0, 0.0,
+            0.0, 0.0, z, 1.0,
+            0.0, 0.0, w, 0.0,
+        );
+        let view = mat4(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.3, 0.5, 0.0, 1.0,
+        );
+        // let opengl_fix = mat4(
+        //     1.0, 0.0, 0.0, 0.0,
+        //     0.0, 1.0, 0.0, 0.0,
+        //     0.0, 0.0, 0.5, 0.0,
+        //     0.0, 0.0, 0.5, 1.0,
+        // );
+
+        projection * view // * opengl_fix
+    }
 }
 
 pub fn create_swapchain_description (size: PhysicalSize<u32>) -> wgpu::SwapChainDescriptor {
@@ -210,6 +308,19 @@ pub fn create_swapchain_description (size: PhysicalSize<u32>) -> wgpu::SwapChain
     }
 }
 
+fn matrix4_to_array(mat: Matrix4<f32>) -> [f32; 16] {
+    let vecs = mat.as_array();
+    let mut vals: Vec<[f32; 4]> = Vec::new();
+    for v in vecs.iter() {
+        vals.push(v.as_array().clone());
+    }
+    vals.concat()[..].try_into().expect("slice with incorrect length")
+}
+
+// impl<'a, T> TryFrom<&'a [T]> for &'a [T; $N] 
+//     type Error = TryFromSliceError;
+// impl<'a, T: Copy> TryFrom<&'a [T]> for &'a [T; $N] 
+//     type Error = TryFromSliceError;
 
 // Only needed if resources are not disposed of in wgpu
 // struct EngineResourceHolder(ManuallyDrop<Engine>);
