@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use std::f32::consts::PI;
 use futures::executor::block_on;
 use zerocopy::AsBytes;
 use winit::{
@@ -16,8 +17,8 @@ const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 // PROJECTION/CAMERA
 const F_NEAR: f32 = 0.1;
-const F_FAR: f32 = 100.0;
-const F_FOV: f32 = 95.0;
+const F_FAR: f32 = 1000.0;
+const F_FOV: f32 = 90.0;
 
 pub struct Engine {
     surface: wgpu::Surface,
@@ -34,36 +35,36 @@ pub struct Engine {
 impl Engine {
     fn create_verticies() -> (Vec<types::Vertex>, Vec<u16>) {
         ([
-            // top
+            // top - RED
             types::Vertex::new(-1.0, -1.0, 3.0, 1.0, 0.0, 0.0),  // 0
-            types::Vertex::new(1.0, -1.0, 3.0, 0.0, 1.0, 0.0),   // 1
-            types::Vertex::new(1.0, 1.0, 3.0, 0.0, 0.0, 1.0),    // 2
-            types::Vertex::new(-1.0, 1.0, 3.0, 0.0, 0.0, 1.0),   // 3
-            // bottom
-            types::Vertex::new(-1.0, -1.0, 2.0, 1.0, 0.0, 0.0), // 4
-            types::Vertex::new(1.0, -1.0, 2.0, 0.0, 1.0, 0.0),  // 5
-            types::Vertex::new(1.0, 1.0, 2.0, 0.0, 0.0, 1.0),   // 6
-            types::Vertex::new(-1.0, 1.0, 2.0, 0.0, 0.0, 1.0),  // 7
-            // right
-            types::Vertex::new(1.0, -1.0, 2.0, 1.0, 0.0, 0.0),  // 8
+            types::Vertex::new(1.0, -1.0, 3.0, 1.0, 0.0, 0.0),   // 1
+            types::Vertex::new(1.0, 1.0, 3.0, 1.0, 0.0, 0.0),    // 2
+            types::Vertex::new(-1.0, 1.0, 3.0, 1.0, 0.0, 0.0),   // 3
+            // bottom - BLUE
+            types::Vertex::new(-1.0, 1.0, 2.0, 0.0, 0.0, 1.0), // 4
+            types::Vertex::new(1.0, 1.0, 2.0, 0.0, 0.0, 1.0),  // 5
+            types::Vertex::new(1.0, -1.0, 2.0, 0.0, 0.0, 1.0),   // 6
+            types::Vertex::new(-1.0, -1.0, 2.0, 0.0, 0.0, 1.0),  // 7
+            // right - GREEN
+            types::Vertex::new(1.0, -1.0, 2.0, 0.0, 1.0, 0.0),  // 8
             types::Vertex::new(1.0, 1.0, 2.0, 0.0, 1.0, 0.0),   // 9
-            types::Vertex::new(1.0, 1.0, 3.0, 0.0, 0.0, 1.0),    // 10
-            types::Vertex::new(1.0, -1.0, 3.0, 0.0, 0.0, 1.0),   // 11
-            // left
-            types::Vertex::new(-1.0, -1.0, 3.0, 0.0, 0.0, 1.0),  // 12
-            types::Vertex::new(-1.0, 1.0, 3.0, 0.0, 1.0, 0.0),   // 13
-            types::Vertex::new(-1.0, 1.0, 2.0, 0.0, 0.0, 1.0),  // 14
-            types::Vertex::new(-1.0, -1.0, 2.0, 1.0, 0.0, 0.0), // 15
-            // front
-            types::Vertex::new(1.0, 1.0, 2.0, 0.0, 0.0, 1.0),   // 16
-            types::Vertex::new(-1.0, 1.0, 2.0, 0.0, 0.0, 1.0),  // 17
-            types::Vertex::new(-1.0, 1.0, 3.0, 0.0, 1.0, 0.0),   // 18
-            types::Vertex::new(1.0, 1.0, 3.0, 1.0, 0.0, 0.0),    // 19
-            // back
-            types::Vertex::new(1.0, -1.0, 3.0, 0.0, 0.0, 1.0),   // 20
-            types::Vertex::new(-1.0, -1.0, 3.0, 0.0, 0.0, 1.0),  // 21
-            types::Vertex::new(-1.0, -1.0, 2.0, 0.0, 1.0, 0.0), // 22
-            types::Vertex::new(1.0, -1.0, 2.0, 1.0, 0.0, 0.0),  // 23
+            types::Vertex::new(1.0, 1.0, 3.0, 0.0, 1.0, 0.0),    // 10
+            types::Vertex::new(1.0, -1.0, 3.0, 0.0, 1.0, 0.0),   // 11
+            // left - MAGNETA
+            types::Vertex::new(-1.0, -1.0, 3.0, 1.0, 0.0, 1.0),  // 12
+            types::Vertex::new(-1.0, 1.0, 3.0, 1.0, 0.0, 1.0),   // 13
+            types::Vertex::new(-1.0, 1.0, 2.0, 1.0, 0.0, 1.0),  // 14
+            types::Vertex::new(-1.0, -1.0, 2.0, 1.0, 0.0, 1.0), // 15
+            // front - CYAN
+            types::Vertex::new(1.0, 1.0, 2.0, 0.0, 1.0, 1.0),   // 16
+            types::Vertex::new(-1.0, 1.0, 2.0, 0.0, 1.0, 1.0),  // 17
+            types::Vertex::new(-1.0, 1.0, 3.0, 0.0, 1.0, 1.0),   // 18
+            types::Vertex::new(1.0, 1.0, 3.0, 0.0, 1.0, 1.0),    // 19
+            // back - YELLOW
+            types::Vertex::new(1.0, -1.0, 3.0, 1.0, 1.0, 0.0),   // 20
+            types::Vertex::new(-1.0, -1.0, 3.0, 1.0, 1.0, 0.0),  // 21
+            types::Vertex::new(-1.0, -1.0, 2.0, 1.0, 1.0, 0.0), // 22
+            types::Vertex::new(1.0, -1.0, 2.0, 1.0, 1.0, 0.0),  // 23
             
         ].to_vec(),
             [
@@ -170,7 +171,7 @@ impl Engine {
             }),
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::None,
+                cull_mode: wgpu::CullMode::Back,
                 depth_bias: 0,
                 depth_bias_slope_scale: 0.0,
                 depth_bias_clamp: 0.0,
@@ -266,7 +267,7 @@ impl Engine {
     }
 
     fn create_mvp_matrix(aspect_ratio: f32) -> Matrix4<f32> {
-        let fov_rad = F_FOV * 0.5 / 180.0 * std::f32::consts::PI;
+        let fov_rad = deg_to_rad(F_FOV * 0.5); 
         let fov = 1.0 / fov_rad.tan();
         let x = aspect_ratio * fov;
         let y = fov;
@@ -275,6 +276,8 @@ impl Engine {
         println!("aspect ratio: {}", aspect_ratio);
         println!("fov: {}", fov);
         println!("x: {}, y: {}, z: {}", x, y, z);
+        let xrot = deg_to_rad(83.0);
+        let yrot = deg_to_rad(21.0);
         let projection = mat4(
             x, 0.0, 0.0, 0.0,
             0.0, y, 0.0, 0.0,
@@ -282,10 +285,10 @@ impl Engine {
             0.0, 0.0, w, 0.0,
         );
         let view = mat4(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.3, 0.5, 0.0, 1.0,
+            1.0,    0.0,   0.0,    0.0,
+            0.0,    1.0,   0.0,    0.0,
+            0.0,    0.0,   1.0,    0.0,
+            0.3,   -2.4,   2.0,    1.0,
         );
         // let opengl_fix = mat4(
         //     1.0, 0.0, 0.0, 0.0,
@@ -294,7 +297,7 @@ impl Engine {
         //     0.0, 0.0, 0.5, 1.0,
         // );
 
-        projection * view // * opengl_fix
+        projection * view * rotation(xrot, yrot, 0.0)
     }
 }
 
@@ -315,6 +318,42 @@ fn matrix4_to_array(mat: Matrix4<f32>) -> [f32; 16] {
         vals.push(v.as_array().clone());
     }
     vals.concat()[..].try_into().expect("slice with incorrect length")
+}
+
+fn deg_to_rad(deg: f32) -> f32 {
+    (deg * PI) / 180.0
+}
+
+fn rotation(x: f32, y: f32, z: f32) -> Matrix4<f32> {
+    xrotation(x) * yrotation(y) * zrotation(z)
+}
+
+fn xrotation(rads: f32) -> Matrix4<f32> {
+    let sincos = (rads.sin(), rads.cos());
+    mat4(
+        1.0,    0.0,       0.0,       0.0,
+        0.0,    sincos.1,  -sincos.0, 0.0,
+        0.0,    sincos.0,  sincos.1,  0.0,
+        0.0,    0.0,       0.0,       1.0,
+    )
+}
+fn yrotation(rads: f32) -> Matrix4<f32> {
+    let sincos = (rads.sin(), rads.cos());
+    mat4(
+        sincos.1,    0.0,   sincos.0,  0.0,
+        0.0,         1.0,   0.0,       0.0,
+        -sincos.0,   0.0,   sincos.1,  0.0,
+        0.0,         0.0,   0.0,       1.0,
+    )
+}
+fn zrotation(rads: f32) -> Matrix4<f32> {
+    let sincos = (rads.sin(), rads.cos());
+    mat4(
+        sincos.1,   -sincos.0,  0.0,   0.0,
+        sincos.0,    sincos.1,  0.0,   0.0,
+        0.0,         0.0,       1.0,   0.0,
+        0.0,         0.0,       0.0,   1.0,
+    )
 }
 
 // impl<'a, T> TryFrom<&'a [T]> for &'a [T; $N] 
