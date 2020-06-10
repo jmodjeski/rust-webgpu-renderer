@@ -1,5 +1,8 @@
 use glm::{mat4, Matrix4};
 use super::utils::{deg_to_rad, rotation, matrix4_to_array};
+use super::types::{Vector};
+
+use super::input_state::InputState;
 
 const F_NEAR: f32 = 0.1;
 const F_FAR: f32 = 100.0;
@@ -11,9 +14,8 @@ pub struct Camera {
     pub far: f32,
     pub fov: f32,
     pub aspect_ratio: f32,
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+    pub position: Vector,
+    pub rotation: Vector,
     pub speed: f32,
 }
 
@@ -24,11 +26,49 @@ impl Camera {
             near: near,
             far: far,
             fov: fov,
-            x: 0.3,
-            y: -1.4,
-            z: 1.0,
-            speed: 1.0,
+            position: Vector::new(0.3,-1.4,1.0),
+            rotation: Vector::new(0.0, 0.0, 0.0),
+            speed: 5.0,
         }
+    }
+
+    pub fn update(&mut self, input: &InputState, delta_time: f32) {
+        if input.forward.is_down {
+            self.position.z -= self.speed * delta_time;
+        }
+        if input.back.is_down {
+            self.position.z += self.speed * delta_time;
+        }
+        if input.left.is_down {
+            self.position.x += self.speed * delta_time;
+        }
+        if input.right.is_down {
+            self.position.x -= self.speed * delta_time;
+        }
+        if input.look_up.is_down {
+            self.rotation.x -= self.speed * delta_time;
+        }
+        if input.look_down.is_down {
+            self.rotation.x += self.speed * delta_time;
+        }
+        if input.look_left.is_down {
+            self.rotation.y -= self.speed * delta_time;
+        }
+        if input.look_right.is_down {
+            self.rotation.y += self.speed * delta_time;
+        }
+        if input.up.is_down {
+            self.position.y -= self.speed * delta_time;
+        }
+        if input.down.is_down {
+            self.position.y += self.speed * delta_time;
+        }
+
+    }
+
+    pub fn reset(&mut self) {
+        self.rotation = Vector::new(0.0, 0.0, 0.0);
+        self.position = Vector::new(0.0, 0.0, 0.0);
     }
 
     pub fn moveTo(&mut self, x: f32, y: f32, z: f32) {
@@ -57,14 +97,20 @@ impl Camera {
             x, 0.0, 0.0, 0.0,
             0.0, y, 0.0, 0.0,
             0.0, 0.0, z, 1.0,
-            0.0, 0.0, w, 0.0,
+            0.0, 0.0, w, 1.0,
         );
         let view = mat4(
             1.0,    0.0,    0.0,    0.0,
             0.0,    1.0,    0.0,    0.0,
             0.0,    0.0,    1.0,    0.0,
-            self.x, self.y, self.z, 1.0,
+            self.position.x, self.position.y, self.position.z, 1.0,
         );
+        // let view = mat4(
+        //     1.0,    0.0,    0.0,    self.position.x,
+        //     0.0,    1.0,    0.0,    self.position.y,
+        //     0.0,    0.0,    1.0,    self.position.z,
+        //     0.0,    0.0,    0.0,    1.0,
+        // );
         // let opengl_fix = mat4(
         //     1.0, 0.0, 0.0, 0.0,
         //     0.0, 1.0, 0.0, 0.0,
@@ -72,6 +118,6 @@ impl Camera {
         //     0.0, 0.0, 0.5, 1.0,
         // );
 
-        projection * view
+        projection * view * rotation(&self.rotation)
     }
 }

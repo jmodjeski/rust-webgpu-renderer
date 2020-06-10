@@ -10,6 +10,7 @@ use winit::{
 mod types;
 mod utils;
 mod camera;
+mod input_state;
 
 const CLEAR_COLOR: wgpu::Color = wgpu::Color::BLACK;
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
@@ -30,7 +31,8 @@ pub struct Engine {
     index_buffer: wgpu::Buffer,
     index_buffer_len: u32,
     uniform_buffer: wgpu::Buffer,
-    camera: camera::Camera
+    camera: camera::Camera,
+    input: input_state::InputState,
 }
 
 impl Engine {
@@ -209,12 +211,14 @@ impl Engine {
             index_buffer_len: indicies.len() as u32,
             uniform_buffer: uniform_buffer,
             camera: camera,
+            input: input_state::InputState::new(),
         }
     }
 
-    pub fn update(&mut self, event: &Event<()>) {
+    pub fn get_input_state(&mut self, event: &Event<()>, delta_time: f32) {
         match event {
             Event::WindowEvent { event, .. } => {
+                // println!("{:?}", event);
                 match event {
                     WindowEvent::KeyboardInput {
                         input: KeyboardInput {
@@ -226,34 +230,96 @@ impl Engine {
                     } => {
                         match virtual_code {
                             VirtualKeyCode::W => {
-                                self.camera.z -= 0.1 * self.camera.speed;
+                                self.input.forward.is_down = true;
                             }
                             VirtualKeyCode::S => {
-                                self.camera.z += 0.1 * self.camera.speed;
+                                self.input.back.is_down = true;
                             }
                             VirtualKeyCode::A => {
-                                self.camera.x -= 0.1 * self.camera.speed;
+                                self.input.left.is_down = true;
                             }
                             VirtualKeyCode::D => {
-                                self.camera.x += 0.1 * self.camera.speed;
+                                self.input.right.is_down = true;
                             }
                             VirtualKeyCode::Up => {
-                                self.camera.y += 0.1 * self.camera.speed;
+                                self.input.look_up.is_down = true;
                             }
                             VirtualKeyCode::Down => {
-                                self.camera.y -= 0.1 * self.camera.speed;
+                                self.input.look_down.is_down = true;
                             }
-                            _ => {
-                                println!("{:?} pressed", virtual_code);
+                            VirtualKeyCode::Left => {
+                                self.input.look_left.is_down = true;
                             }
+                            VirtualKeyCode::Right => {
+                                self.input.look_right.is_down = true;
+                            }
+                            VirtualKeyCode::Space => {
+                                self.input.up.is_down = true;
+                            }
+                            VirtualKeyCode::LControl => {
+                                self.input.down.is_down = true;
+                            }
+                            VirtualKeyCode::R => {
+                                self.camera.reset();
+                            }
+                            _ => {}
                         }
-                        self.submit_uniform_data();
+                    },
+                    WindowEvent::KeyboardInput {
+                        input: KeyboardInput {
+                            virtual_keycode: Some(virtual_code),
+                            state: ElementState::Released,
+                            ..
+                        },
+                        ..
+                    } => {
+                        match virtual_code {
+                            VirtualKeyCode::W => {
+                                self.input.forward.is_down = false;
+                            }
+                            VirtualKeyCode::S => {
+                                self.input.back.is_down = false;
+                            }
+                            VirtualKeyCode::A => {
+                                self.input.left.is_down = false;
+                            }
+                            VirtualKeyCode::D => {
+                                self.input.right.is_down = false;
+                            }
+                            VirtualKeyCode::Up => {
+                                self.input.look_up.is_down = false;
+                            }
+                            VirtualKeyCode::Down => {
+                                self.input.look_down.is_down = false;
+                            }
+                            VirtualKeyCode::Left => {
+                                self.input.look_left.is_down = false;
+                            }
+                            VirtualKeyCode::Right => {
+                                self.input.look_right.is_down = false;
+                            }
+                            VirtualKeyCode::Space => {
+                                self.input.up.is_down = false;
+                            }
+                            VirtualKeyCode::LControl => {
+                                self.input.down.is_down = false;
+                            }
+                            _ => {}
+                        }
                     },
                     _ => ()
                 }
             }
             _ => ()
         }
+    }
+
+    pub fn update(&mut self, event: &Event<()>, delta_time: f32) {
+        self.get_input_state(event, delta_time);
+        
+        self.camera.update(&self.input, delta_time);
+
+        self.submit_uniform_data();
     }
 
     pub fn render(&mut self, _event: Event<()>) {

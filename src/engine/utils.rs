@@ -1,13 +1,14 @@
 use std::convert::TryInto;
 use std::f32::consts::PI;
 use glm::{mat4, Matrix4};
+use super::types::{Vector};
 
 pub fn deg_to_rad(deg: f32) -> f32 {
     (deg * PI) / 180.0
 }
 
-pub fn rotation(x: f32, y: f32, z: f32) -> Matrix4<f32> {
-    xrotation(x) * yrotation(y) * zrotation(z)
+pub fn rotation(v: &Vector) -> Matrix4<f32> {
+    xrotation(v.x) * yrotation(v.y) * zrotation(v.z)
 }
 
 pub fn xrotation(rads: f32) -> Matrix4<f32> {
