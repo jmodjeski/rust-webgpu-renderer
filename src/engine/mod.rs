@@ -16,8 +16,8 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color::BLACK;
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 // PROJECTION/CAMERA
-const F_NEAR: f32 = 0.1;
-const F_FAR: f32 = 100.0;
+const F_NEAR: f32 = 0.01;
+const F_FAR: f32 = 1000.0;
 const F_FOV: f32 = 90.0;
 
 pub struct Engine {
@@ -38,36 +38,36 @@ pub struct Engine {
 impl Engine {
     fn create_verticies() -> (Vec<types::Vertex>, Vec<u16>) {
         ([
-            // top - RED
-            types::Vertex::new(-1.0, -1.0, 3.0, 1.0, 0.0, 0.0),  // 0
-            types::Vertex::new(1.0, -1.0, 3.0, 1.0, 0.0, 0.0),   // 1
-            types::Vertex::new(1.0, 1.0, 3.0, 1.0, 0.0, 0.0),    // 2
-            types::Vertex::new(-1.0, 1.0, 3.0, 1.0, 0.0, 0.0),   // 3
-            // bottom - BLUE
-            types::Vertex::new(-1.0, 1.0, 2.0, 0.0, 0.0, 1.0), // 4
-            types::Vertex::new(1.0, 1.0, 2.0, 0.0, 0.0, 1.0),  // 5
-            types::Vertex::new(1.0, -1.0, 2.0, 0.0, 0.0, 1.0),   // 6
-            types::Vertex::new(-1.0, -1.0, 2.0, 0.0, 0.0, 1.0),  // 7
+            // front - RED
+            types::Vertex::new(-1.0, -1.0, 1.0, 1.0, 0.0, 0.0),  // 0
+            types::Vertex::new(1.0, -1.0, 1.0, 1.0, 0.0, 0.0),   // 1
+            types::Vertex::new(1.0, 1.0, 1.0, 1.0, 0.0, 0.0),    // 2
+            types::Vertex::new(-1.0, 1.0, 1.0, 1.0, 0.0, 0.0),   // 3
+            // back - BLUE
+            types::Vertex::new(-1.0, 1.0, -1.0, 0.0, 0.0, 1.0), // 4
+            types::Vertex::new(1.0, 1.0, -1.0, 0.0, 0.0, 1.0),  // 5
+            types::Vertex::new(1.0, -1.0, -1.0, 0.0, 0.0, 1.0),   // 6
+            types::Vertex::new(-1.0, -1.0, -1.0, 0.0, 0.0, 1.0),  // 7
             // right - GREEN
-            types::Vertex::new(1.0, -1.0, 2.0, 0.0, 1.0, 0.0),  // 8
-            types::Vertex::new(1.0, 1.0, 2.0, 0.0, 1.0, 0.0),   // 9
-            types::Vertex::new(1.0, 1.0, 3.0, 0.0, 1.0, 0.0),    // 10
-            types::Vertex::new(1.0, -1.0, 3.0, 0.0, 1.0, 0.0),   // 11
+            types::Vertex::new(1.0, -1.0, -1.0, 0.0, 1.0, 0.0),  // 8
+            types::Vertex::new(1.0, 1.0, -1.0, 0.0, 1.0, 0.0),   // 9
+            types::Vertex::new(1.0, 1.0, 1.0, 0.0, 1.0, 0.0),    // 10
+            types::Vertex::new(1.0, -1.0, 1.0, 0.0, 1.0, 0.0),   // 11
             // left - MAGNETA
-            types::Vertex::new(-1.0, -1.0, 3.0, 1.0, 0.0, 1.0),  // 12
-            types::Vertex::new(-1.0, 1.0, 3.0, 1.0, 0.0, 1.0),   // 13
-            types::Vertex::new(-1.0, 1.0, 2.0, 1.0, 0.0, 1.0),  // 14
-            types::Vertex::new(-1.0, -1.0, 2.0, 1.0, 0.0, 1.0), // 15
-            // front - CYAN
-            types::Vertex::new(1.0, 1.0, 2.0, 0.0, 1.0, 1.0),   // 16
-            types::Vertex::new(-1.0, 1.0, 2.0, 0.0, 1.0, 1.0),  // 17
-            types::Vertex::new(-1.0, 1.0, 3.0, 0.0, 1.0, 1.0),   // 18
-            types::Vertex::new(1.0, 1.0, 3.0, 0.0, 1.0, 1.0),    // 19
-            // back - YELLOW
-            types::Vertex::new(1.0, -1.0, 3.0, 1.0, 1.0, 0.0),   // 20
-            types::Vertex::new(-1.0, -1.0, 3.0, 1.0, 1.0, 0.0),  // 21
-            types::Vertex::new(-1.0, -1.0, 2.0, 1.0, 1.0, 0.0), // 22
-            types::Vertex::new(1.0, -1.0, 2.0, 1.0, 1.0, 0.0),  // 23
+            types::Vertex::new(-1.0, -1.0, 1.0, 1.0, 0.0, 1.0),  // 12
+            types::Vertex::new(-1.0, 1.0, 1.0, 1.0, 0.0, 1.0),   // 13
+            types::Vertex::new(-1.0, 1.0, -1.0, 1.0, 0.0, 1.0),  // 14
+            types::Vertex::new(-1.0, -1.0, -1.0, 1.0, 0.0, 1.0), // 15
+            // top - CYAN
+            types::Vertex::new(1.0, 1.0, -1.0, 0.0, 1.0, 1.0),   // 16
+            types::Vertex::new(-1.0, 1.0, -1.0, 0.0, 1.0, 1.0),  // 17
+            types::Vertex::new(-1.0, 1.0, 1.0, 0.0, 1.0, 1.0),   // 18
+            types::Vertex::new(1.0, 1.0, 1.0, 0.0, 1.0, 1.0),    // 19
+            // bottom - YELLOW
+            types::Vertex::new(1.0, -1.0, 1.0, 1.0, 1.0, 0.0),   // 20
+            types::Vertex::new(-1.0, -1.0, 1.0, 1.0, 1.0, 0.0),  // 21
+            types::Vertex::new(-1.0, -1.0, -1.0, 1.0, 1.0, 0.0), // 22
+            types::Vertex::new(1.0, -1.0, -1.0, 1.0, 1.0, 0.0),  // 23
             
         ].to_vec(),
             [
@@ -172,7 +172,7 @@ impl Engine {
                 entry_point: "main",
             }),
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Cw,
+                front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::Back,
                 depth_bias: 0,
                 depth_bias_slope_scale: 0.0,

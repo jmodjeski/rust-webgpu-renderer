@@ -1,5 +1,5 @@
 use glm::{mat4, Matrix4};
-use super::utils::{deg_to_rad, rotation, matrix4_to_array};
+use super::utils::{deg_to_rad, trasform, matrix4_to_array};
 use super::types::{Vector};
 
 use super::input_state::InputState;
@@ -34,10 +34,10 @@ impl Camera {
 
     pub fn update(&mut self, input: &InputState, delta_time: f32) {
         if input.forward.is_down {
-            self.position.z -= self.speed * delta_time;
+            self.position.z += self.speed * delta_time;
         }
         if input.back.is_down {
-            self.position.z += self.speed * delta_time;
+            self.position.z -= self.speed * delta_time;
         }
         if input.left.is_down {
             self.position.x += self.speed * delta_time;
@@ -46,10 +46,10 @@ impl Camera {
             self.position.x -= self.speed * delta_time;
         }
         if input.look_up.is_down {
-            self.rotation.x -= self.speed * delta_time;
+            self.rotation.x += self.speed * delta_time;
         }
         if input.look_down.is_down {
-            self.rotation.x += self.speed * delta_time;
+            self.rotation.x -= self.speed * delta_time;
         }
         if input.look_left.is_down {
             self.rotation.y -= self.speed * delta_time;
@@ -88,36 +88,42 @@ impl Camera {
     fn create_projection_matrix(&self) -> Matrix4<f32> {
         let fov_rad = deg_to_rad(self.fov * 0.5); 
         let fov = 1.0 / fov_rad.tan();
-        let x = self.aspect_ratio * fov;
+        let x = fov / self.aspect_ratio;
         let y = fov;
-        let z = self.far / (self.far - self.near);
-        let w = (-self.far * self.near) / (self.far - self.near);
+        let z = (self.far + self.near) * (1.0 / (self.near - self.far));
+        let w = 2.0 * self.far * self.near * (1.0 / (self.near - self.far));
 
         let projection = mat4(
             x, 0.0, 0.0, 0.0,
             0.0, y, 0.0, 0.0,
-            0.0, 0.0, z, 1.0,
-            0.0, 0.0, w, 1.0,
+            0.0, 0.0, z, -1.0,
+            0.0, 0.0, w, 0.0,
         );
-        let view = mat4(
-            1.0,    0.0,    0.0,    0.0,
-            0.0,    1.0,    0.0,    0.0,
-            0.0,    0.0,    1.0,    0.0,
-            self.position.x, self.position.y, self.position.z, 1.0,
-        );
+        // let view = mat4(
+        //     1.0,    0.0,    0.0,    0.0,
+        //     0.0,    1.0,    0.0,    0.0,
+        //     0.0,    0.0,    1.0,    0.0,
+        //     self.position.x, self.position.y, self.position.z, 1.0,
+        // );
         // let view = mat4(
         //     1.0,    0.0,    0.0,    self.position.x,
         //     0.0,    1.0,    0.0,    self.position.y,
         //     0.0,    0.0,    1.0,    self.position.z,
         //     0.0,    0.0,    0.0,    1.0,
         // );
-        // let opengl_fix = mat4(
-        //     1.0, 0.0, 0.0, 0.0,
-        //     0.0, 1.0, 0.0, 0.0,
-        //     0.0, 0.0, 0.5, 0.0,
-        //     0.0, 0.0, 0.5, 1.0,
+        // let view = mat4(
+        //     1.0,    0.0,    0.0,    self.position.x,
+        //     0.0,    1.0,    0.0,    self.position.y,
+        //     0.0,    0.0,    1.0,    self.position.z,
+        //     self.position.x, self.position.y, self.position.z, 1.0,
         // );
+        let opengl_fix = mat4(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 0.5, 0.0,
+            0.0, 0.0, 0.5, 1.0,
+        );
 
-        projection * view * rotation(&self.rotation)
+        projection * opengl_fix * trasform(&self.position, &self.rotation)
     }
 }
