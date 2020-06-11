@@ -44,10 +44,10 @@ impl Engine {
             types::Vertex::new(1.0, 1.0, 1.0, 1.0, 0.0, 0.0),    // 2
             types::Vertex::new(-1.0, 1.0, 1.0, 1.0, 0.0, 0.0),   // 3
             // back - BLUE
-            types::Vertex::new(-1.0, 1.0, -1.0, 0.0, 0.0, 1.0), // 4
-            types::Vertex::new(1.0, 1.0, -1.0, 0.0, 0.0, 1.0),  // 5
-            types::Vertex::new(1.0, -1.0, -1.0, 0.0, 0.0, 1.0),   // 6
-            types::Vertex::new(-1.0, -1.0, -1.0, 0.0, 0.0, 1.0),  // 7
+            types::Vertex::new(-1.0, 1.0, -1.0, 0.0, 0.0, 1.0),  // 4
+            types::Vertex::new(1.0, 1.0, -1.0, 0.0, 0.0, 1.0),   // 5
+            types::Vertex::new(1.0, -1.0, -1.0, 0.0, 0.0, 1.0),  // 6
+            types::Vertex::new(-1.0, -1.0, -1.0, 0.0, 0.0, 1.0), // 7
             // right - GREEN
             types::Vertex::new(1.0, -1.0, -1.0, 0.0, 1.0, 0.0),  // 8
             types::Vertex::new(1.0, 1.0, -1.0, 0.0, 1.0, 0.0),   // 9
