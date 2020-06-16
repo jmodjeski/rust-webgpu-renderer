@@ -40,6 +40,7 @@ pub fn rotate(rot: &Vector) -> Matrix4<f32> {
 //     )
 // }
 
+#[allow(dead_code)]
 pub fn xrotation(rads: f32) -> Matrix4<f32> {
     let sincos = (rads.sin(), rads.cos());
     mat4(
@@ -50,6 +51,7 @@ pub fn xrotation(rads: f32) -> Matrix4<f32> {
     )
 }
 
+#[allow(dead_code)]
 pub fn yrotation(rads: f32) -> Matrix4<f32> {
     let sincos = (rads.sin(), rads.cos());
     mat4(
@@ -60,6 +62,7 @@ pub fn yrotation(rads: f32) -> Matrix4<f32> {
     )
 }
 
+#[allow(dead_code)]
 pub fn zrotation(rads: f32) -> Matrix4<f32> {
     let sincos = (rads.sin(), rads.cos());
     mat4(

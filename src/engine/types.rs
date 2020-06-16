@@ -18,6 +18,7 @@ impl Vertex {
         }
     }
 
+    #[allow(dead_code)]
     pub fn s_new(position: [f32; 3], color: [f32; 3]) -> Vertex {
         Vertex {
             position: position,

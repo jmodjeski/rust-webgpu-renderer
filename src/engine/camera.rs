@@ -4,10 +4,6 @@ use super::types::{Vector};
 
 use super::input_state::InputState;
 
-const F_NEAR: f32 = 0.1;
-const F_FAR: f32 = 100.0;
-const F_FOV: f32 = 90.0;
-
 #[derive(Debug)]
 pub struct Camera {
     pub near: f32,
@@ -70,6 +66,7 @@ impl Camera {
         self.position = Vector::new(0.0, 0.0, 0.0);
     }
 
+    #[allow(dead_code)]
     pub fn move_to(&mut self, x: f32, y: f32, z: f32) {
         self.position.x = x;
         self.position.y = y;
