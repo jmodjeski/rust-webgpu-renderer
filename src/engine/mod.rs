@@ -1,5 +1,8 @@
 use futures::executor::block_on;
 use zerocopy::AsBytes;
+// use std::io;
+// use std::io::prelude::*;
+use std::fs::File;
 use winit::{
     window::{Window, WindowBuilder},
     event::{Event, WindowEvent, KeyboardInput, VirtualKeyCode, ElementState},
@@ -12,13 +15,38 @@ mod utils;
 mod camera;
 mod input_state;
 
-const CLEAR_COLOR: wgpu::Color = wgpu::Color::BLACK;
-const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
+const CLEAR_COLOR: wgpu::Color = wgpu::Color {
+    r: 0.26,
+    g: 0.31,
+    b: 0.42,
+    a: 1.0,
+};
+const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8Unorm;
 
 // PROJECTION/CAMERA
 const F_NEAR: f32 = 0.01;
 const F_FAR: f32 = 1000.0;
 const F_FOV: f32 = 90.0;
+
+// struct BindGroupResources<'a> {
+//     should_recreate: bool,
+//     layout: Vec<wgpu::BindGroupLayoutEntry>,
+//     resources: Vec<wgpu::Binding<'a>>
+// }
+
+// impl<'a> BindGroupResources<'a> {
+//     fn new() -> BindGroupResources<'a> {
+//         BindGroupResources {
+//             should_recreate: false,
+//             layout: Vec::new(),
+//             resources: Vec::new()
+//         }
+//     }
+
+//     fn add_resource(&mut self, layoutEntry: wgpu::BindGroupLayoutEntry, binding: wgpu::Binding) {
+//         self.layout.push(layoutEntry);
+//     }
+// }
 
 pub struct Engine {
     surface: wgpu::Surface,
@@ -39,35 +67,35 @@ impl Engine {
     fn create_verticies() -> (Vec<types::Vertex>, Vec<u16>) {
         ([
             // front - RED
-            types::Vertex::new(-1.0, -1.0, 1.0, 1.0, 0.0, 0.0),  // 0
-            types::Vertex::new(1.0, -1.0, 1.0, 1.0, 0.0, 0.0),   // 1
-            types::Vertex::new(1.0, 1.0, 1.0, 1.0, 0.0, 0.0),    // 2
-            types::Vertex::new(-1.0, 1.0, 1.0, 1.0, 0.0, 0.0),   // 3
+            types::Vertex::new(-1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0),  // 0
+            types::Vertex::new(1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0),   // 1
+            types::Vertex::new(1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0),    // 2
+            types::Vertex::new(-1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0),   // 3
             // back - BLUE
-            types::Vertex::new(-1.0, 1.0, -1.0, 0.0, 0.0, 1.0),  // 4
-            types::Vertex::new(1.0, 1.0, -1.0, 0.0, 0.0, 1.0),   // 5
-            types::Vertex::new(1.0, -1.0, -1.0, 0.0, 0.0, 1.0),  // 6
-            types::Vertex::new(-1.0, -1.0, -1.0, 0.0, 0.0, 1.0), // 7
+            types::Vertex::new(-1.0, 1.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0),  // 4
+            types::Vertex::new(1.0, 1.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0),   // 5
+            types::Vertex::new(1.0, -1.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0),  // 6
+            types::Vertex::new(-1.0, -1.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0), // 7
             // right - GREEN
-            types::Vertex::new(1.0, -1.0, -1.0, 0.0, 1.0, 0.0),  // 8
-            types::Vertex::new(1.0, 1.0, -1.0, 0.0, 1.0, 0.0),   // 9
-            types::Vertex::new(1.0, 1.0, 1.0, 0.0, 1.0, 0.0),    // 10
-            types::Vertex::new(1.0, -1.0, 1.0, 0.0, 1.0, 0.0),   // 11
+            types::Vertex::new(1.0, -1.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0),  // 8
+            types::Vertex::new(1.0, 1.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0),   // 9
+            types::Vertex::new(1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0),    // 10
+            types::Vertex::new(1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0),   // 11
             // left - MAGNETA
-            types::Vertex::new(-1.0, -1.0, 1.0, 1.0, 0.0, 1.0),  // 12
-            types::Vertex::new(-1.0, 1.0, 1.0, 1.0, 0.0, 1.0),   // 13
-            types::Vertex::new(-1.0, 1.0, -1.0, 1.0, 0.0, 1.0),  // 14
-            types::Vertex::new(-1.0, -1.0, -1.0, 1.0, 0.0, 1.0), // 15
+            types::Vertex::new(-1.0, -1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0),  // 12
+            types::Vertex::new(-1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0),   // 13
+            types::Vertex::new(-1.0, 1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0),  // 14
+            types::Vertex::new(-1.0, -1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0), // 15
             // top - CYAN
-            types::Vertex::new(1.0, 1.0, -1.0, 0.0, 1.0, 1.0),   // 16
-            types::Vertex::new(-1.0, 1.0, -1.0, 0.0, 1.0, 1.0),  // 17
-            types::Vertex::new(-1.0, 1.0, 1.0, 0.0, 1.0, 1.0),   // 18
-            types::Vertex::new(1.0, 1.0, 1.0, 0.0, 1.0, 1.0),    // 19
+            types::Vertex::new(1.0, 1.0, -1.0, 0.0, 1.0, 1.0, 0.0, 0.0),   // 16
+            types::Vertex::new(-1.0, 1.0, -1.0, 0.0, 1.0, 1.0, 0.0, 0.0),  // 17
+            types::Vertex::new(-1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0),   // 18
+            types::Vertex::new(1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0),    // 19
             // bottom - YELLOW
-            types::Vertex::new(1.0, -1.0, 1.0, 1.0, 1.0, 0.0),   // 20
-            types::Vertex::new(-1.0, -1.0, 1.0, 1.0, 1.0, 0.0),  // 21
-            types::Vertex::new(-1.0, -1.0, -1.0, 1.0, 1.0, 0.0), // 22
-            types::Vertex::new(1.0, -1.0, -1.0, 1.0, 1.0, 0.0),  // 23
+            types::Vertex::new(1.0, -1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0),   // 20
+            types::Vertex::new(-1.0, -1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0),  // 21
+            types::Vertex::new(-1.0, -1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 0.0), // 22
+            types::Vertex::new(1.0, -1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 0.0),  // 23
             
         ].to_vec(),
             [
@@ -80,6 +108,74 @@ impl Engine {
             ].to_vec()
         )
     }
+
+    // pub fn load_texture(&mut self, file_name: &str, size: &types::Vec2<u32>) -> wgpu::TextureView {
+    //     let mut file = File::open(file_name).expect("Failed to find file with name.");
+    //     let mut buffer = Vec::new();
+
+    //     file.read_to_end(&mut buffer).expect("Failed to read in texture file");
+    //     // load in file
+    //     // set size?
+    //     let texture_extent = wgpu::Extent3d {
+    //         width: size.x,
+    //         height: size.y,
+    //         depth: 1,
+    //     };
+    //     let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+    //         label: None,
+    //         size: texture_extent,
+    //         mip_level_count: 1,
+    //         sample_count: 1,
+    //         dimension: wgpu::TextureDimension::D2,
+    //         format: wgpu::TextureFormat::Rgba8UnormSrgb,
+    //         usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+    //         array_layer_count: 1,
+    //     });
+
+    //     texture.create_default_view();
+
+    //     let image_buf = self.device.create_buffer_with_data(&buffer, wgpu::BufferUsage::COPY_SRC);
+
+    //     self.command_encoder.copy_buffer_to_texture(
+    //         wgpu::BufferCopyView {
+    //             buffer: &image_buf,
+    //             offset: 0,
+    //             bytes_per_row: 4 * size.x,
+    //             rows_per_image: 0,
+    //         },
+    //         wgpu::TextureCopyView {
+    //             texture: &texture,
+    //             mip_level: 0,
+    //             array_layer: 0, // might need to keep count?
+    //             origin: wgpu::Origin3d::ZERO,
+    //         },
+    //         texture_extent,
+    //     );
+
+    //     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
+    //         format: TEXTURE_FORMAT,
+    //         dimension: wgpu::TextureViewDimension::D2,
+    //         aspect: wgpu::TextureAspect::default(),
+    //         base_mip_level: 0,
+    //         level_count: 1,
+    //         base_array_layer: 0,
+    //         array_layer_count: 1,
+    //     });
+
+    //     texture_view
+    // }
+
+    // fn add_to_bind_group(&self) { // will need to keep track of these resources to create a new bind group when changes are made? 
+    //     self.bind_group
+    //     // wgpu::Binding {
+    //     //     binding: 1,
+    //     //     resource: wgpu::BindingResource::TextureView(&texture_view),
+    //     // },
+    //     // wgpu::Binding {
+    //     //     binding: 2,
+    //     //     resource: wgpu::BindingResource::Sampler(&sampler),
+    //     // },
+    // }
 
     pub fn get_init(title: &str) -> (Window, EventLoop<()>) {
         let event_loop = EventLoop::new();
@@ -122,22 +218,100 @@ impl Engine {
         let camera = camera::Camera::new(size.width as f32 / size.height as f32, F_NEAR, F_FAR, F_FOV);
         let uniform_buffer = device.create_buffer_with_data(&camera.projection().as_bytes(), wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST);
 
-        let vs = include_bytes!("../../compiled_shaders/shader.vert.spv");
-        let vs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
-
-        let fs = include_bytes!("../../compiled_shaders/shader.frag.spv");
-        let fs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
-
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             bindings: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStage::VERTEX,
                     ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::SampledTexture {
+                        multisampled: false,
+                        component_type: wgpu::TextureComponentType::Float,
+                        dimension: wgpu::TextureViewDimension::D2,
+                    }
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler {
+                        comparison: false,
+                    }
                 }
             ],
             label: None,
         });
+        
+        let file = File::open("./assets/luigi.png").expect("Failed to find file with name.");
+        let decoder = png::Decoder::new(file);
+        let (info, mut reader) = decoder.read_info().expect("can't read info");
+        let image_width = info.width;
+        let image_height = info.height;
+        let mut img = vec![0; info.buffer_size()];
+        reader.next_frame(&mut img).expect("can't read png frame");
+        // println!("{:?}", img);
+        // load in file
+        // set size?
+        let texture_extent = wgpu::Extent3d {
+            width: image_width,
+            height: image_height,
+            depth: 1,
+        };
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            size: texture_extent,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: TEXTURE_FORMAT,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+            array_layer_count: 1,
+        });
+
+        let texture_view = texture.create_default_view();
+        let image_buf = device.create_buffer_with_data(&img, wgpu::BufferUsage::COPY_SRC);
+
+        let mut command_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        command_encoder.copy_buffer_to_texture(
+            wgpu::BufferCopyView {
+                buffer: &image_buf,
+                offset: 0,
+                bytes_per_row: 4 * image_width,
+                rows_per_image: 0,
+            },
+            wgpu::TextureCopyView {
+                texture: &texture,
+                mip_level: 0,
+                array_layer: 0, // might need to keep count?
+                origin: wgpu::Origin3d::ZERO,
+            },
+            texture_extent,
+        );
+
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            lod_min_clamp: -100.0,
+            lod_max_clamp: 100.0,
+            compare: wgpu::CompareFunction::Undefined,
+        });
+
+        // let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
+        //     format: TEXTURE_FORMAT,
+        //     dimension: wgpu::TextureViewDimension::D2,
+        //     aspect: wgpu::TextureAspect::default(),
+        //     base_mip_level: 0,
+        //     level_count: 1,
+        //     base_array_layer: 0,
+        //     array_layer_count: 1,
+        // });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
@@ -148,7 +322,15 @@ impl Engine {
                         buffer: &uniform_buffer,
                         range: 0..64,
                     }
-                }
+                },
+                wgpu::Binding {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::Binding {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
             ],
             label: None,
         });
@@ -160,6 +342,19 @@ impl Engine {
         let vertex_buffer_descriptors = &[
             Engine::create_vertex_buffer(types::VERTEX_SIZE as wgpu::BufferAddress)
         ];
+
+        // println!("{:?}", vertex_buffer_descriptors);
+
+
+        let swapchain_description = create_swapchain_description(size);
+
+        let swapchain = device.create_swap_chain(&surface, &swapchain_description);
+
+        let vs = include_bytes!("../../compiled_shaders/shader.vert.spv");
+        let vs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
+
+        let fs = include_bytes!("../../compiled_shaders/shader.frag.spv");
+        let fs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
@@ -195,9 +390,9 @@ impl Engine {
             alpha_to_coverage_enabled: false,
         });
 
-        let swapchain_description = create_swapchain_description(size);
+        println!("hello");
 
-        let swapchain = device.create_swap_chain(&surface, &swapchain_description);
+        // command_encoder.finish();
 
         Engine {
             surface: surface,
@@ -327,6 +522,7 @@ impl Engine {
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: None,
         });
+        // let pipeline = self.create_pipeline();
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -382,6 +578,11 @@ impl Engine {
                     format: wgpu::VertexFormat::Float3,
                     offset: 4 * 3,
                     shader_location: 1,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    format: wgpu::VertexFormat::Float2,
+                    offset: 4 * 6,
+                    shader_location: 2,
                 }
             ]
         }

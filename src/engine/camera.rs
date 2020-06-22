@@ -36,10 +36,10 @@ impl Camera {
             self.position.z -= self.speed * delta_time;
         }
         if input.left.is_down {
-            self.position.x -= self.speed * delta_time;
+            self.position.x += self.speed * delta_time;
         }
         if input.right.is_down {
-            self.position.x += self.speed * delta_time;
+            self.position.x -= self.speed * delta_time;
         }
         if input.look_up.is_down {
             self.rotation.x += self.speed * delta_time;
@@ -48,10 +48,10 @@ impl Camera {
             self.rotation.x -= self.speed * delta_time;
         }
         if input.look_left.is_down {
-            self.rotation.y -= self.speed * delta_time;
+            self.rotation.y += self.speed * delta_time;
         }
         if input.look_right.is_down {
-            self.rotation.y += self.speed * delta_time;
+            self.rotation.y -= self.speed * delta_time;
         }
         if input.up.is_down {
             self.position.y -= self.speed * delta_time;
